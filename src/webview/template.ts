@@ -97,8 +97,14 @@ export function getWebviewHtml(webview: vscode.Webview, extensionUri: vscode.Uri
       <textarea id="body-textarea" class="thoth-body-textarea" placeholder="{ &#10;  &quot;key&quot;: &quot;value&quot;&#10;}"></textarea>
     </div>
 
-    <!-- Send Button -->
-    <div>
+    <!-- Send & Environment Row -->
+    <div class="thoth-send-bar">
+      <div class="thoth-env-group">
+        <label for="request-env-select" class="thoth-env-label">Environment:</label>
+        <select id="request-env-select" class="thoth-env-select">
+          <option value="$shared">$shared</option>
+        </select>
+      </div>
       <button id="btn-send" class="btn btn-send">[ SEND ]</button>
     </div>
 

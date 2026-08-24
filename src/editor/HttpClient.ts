@@ -26,6 +26,11 @@ export async function executeThothRequest(request: ThothRequestData): Promise<Th
       rawUrl = 'http://' + rawUrl;
     }
 
+    // Allow self-signed TLS certificates for local HTTPS development
+    if (rawUrl.includes('localhost') || rawUrl.includes('127.0.0.1')) {
+      process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+    }
+
     const urlObj = new URL(rawUrl);
 
     if (request.query && typeof request.query === 'object') {
@@ -95,7 +100,6 @@ export async function executeThothRequest(request: ThothRequestData): Promise<Th
         parsedBody = rawText;
       }
     } else {
-      // Attempt JSON parse anyway if it looks like JSON
       const trimmed = rawText.trim();
       if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
         try {
@@ -119,16 +123,19 @@ export async function executeThothRequest(request: ThothRequestData): Promise<Th
 
   } catch (err: any) {
     const durationMs = Math.round(performance.now() - startTime);
+    const isTimeout = err.name === 'AbortError';
+    const errMessage = isTimeout ? 'Timeout (30s)' : `Fetch failed: ${err.message || String(err)}`;
+
     return {
       ok: false,
       status: 0,
-      statusText: err.name === 'AbortError' ? 'Timeout (30s)' : 'Fetch Error',
+      statusText: isTimeout ? 'Timeout (30s)' : 'Fetch Error',
       durationMs,
       headers: {},
-      body: err.message || String(err),
+      body: `${errMessage}\n\nTroubleshooting:\n- Check if the target server is running and accessible at the requested URL.\n- Verify port numbers and network connection.`,
       contentType: 'text/plain',
       sizeBytes: 0,
-      error: err.message || String(err)
+      error: errMessage
     };
   }
 }

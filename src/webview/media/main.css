@@ -129,15 +129,49 @@ body {
   background: var(--vscode-button-secondaryHoverBackground, #37373d);
 }
 
+/* Send Bar & Environment Group */
+.thoth-send-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+}
+
+.thoth-env-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.thoth-env-label {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--thoth-fg);
+}
+
+.thoth-env-select {
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid var(--thoth-input-border);
+  background-color: var(--thoth-input-bg);
+  color: var(--thoth-fg);
+  cursor: pointer;
+  outline: none;
+  min-width: 160px;
+}
+
 /* Send Button */
 .btn-send {
+  flex: 1;
   background: linear-gradient(135deg, #10b981, #059669);
   color: #ffffff;
   font-weight: 700;
   letter-spacing: 0.5px;
   padding: 10px 28px;
   font-size: 14px;
-  width: 100%;
   box-shadow: 0 4px 15px rgba(16, 185, 129, 0.25);
   border: none;
 }

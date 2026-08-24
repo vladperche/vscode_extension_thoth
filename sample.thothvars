@@ -1,0 +1,14 @@
+{
+    "$shared": {
+        "shared_var1": "value1",
+        "shared_var2": "value2"
+    },
+    "env_name_1": {
+        "env_var1": "env_value1.1",
+        "env_var2": "env_value1.2"
+    },
+    "env_name_2": {
+        "env_var1": "env_value2.1",
+        "env_var2": "env_value2.2"
+    }
+}

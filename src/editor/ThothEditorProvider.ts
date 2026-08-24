@@ -1,7 +1,10 @@
 import * as vscode from 'vscode';
-import { parseThothDocument, serializeThothDocument, ThothRequestData } from './ThothDocument.js';
+import { parseThothDocument, serializeThothDocument } from './ThothDocument.js';
 import { executeThothRequest } from './HttpClient.js';
 import { getWebviewHtml } from '../webview/template.js';
+import { resolveRequestVariablesWithRules } from '../services/VariableResolver.js';
+import { discoverEnvironments } from '../services/EnvironmentDiscovery.js';
+import { envStateService } from '../services/EnvironmentStateService.js';
 
 export class ThothEditorProvider implements vscode.CustomTextEditorProvider {
   public static readonly viewType = 'thoth.editor';
@@ -29,7 +32,6 @@ export class ThothEditorProvider implements vscode.CustomTextEditorProvider {
     token: vscode.CancellationToken
   ): Promise<void> {
 
-    // Configure webview panel options
     webviewPanel.webview.options = {
       enableScripts: true,
       localResourceRoots: [
@@ -38,34 +40,45 @@ export class ThothEditorProvider implements vscode.CustomTextEditorProvider {
       ]
     };
 
-    // Set HTML content
     webviewPanel.webview.html = getWebviewHtml(webviewPanel.webview, this.context.extensionUri);
 
-    // Track state to avoid infinite update loops between document and webview
     let isUpdatingFromWebview = false;
 
-    // Send initial data to webview
-    const updateWebview = () => {
+    const updateWebview = async () => {
       if (isUpdatingFromWebview) return;
       const requestData = parseThothDocument(document.getText());
       webviewPanel.webview.postMessage({
         type: 'load',
         data: requestData
       });
+
+      const envs = await discoverEnvironments(document.uri);
+      const selectedEnv = envStateService.getSelectedEnvironment(document.uri);
+
+      webviewPanel.webview.postMessage({
+        type: 'environmentsList',
+        environments: envs,
+        selectedEnv
+      });
     };
 
-    updateWebview();
+    await updateWebview();
 
-    // Listen for changes to document from outside (e.g. undo/redo or external edit)
-    const changeDocumentSubscription = vscode.workspace.onDidChangeTextDocument(e => {
+    const changeDocumentSubscription = vscode.workspace.onDidChangeTextDocument(async e => {
       if (e.document.uri.toString() === document.uri.toString()) {
-        updateWebview();
+        await updateWebview();
       }
     });
 
-    // Handle messages from the webview
     webviewPanel.webview.onDidReceiveMessage(async message => {
       switch (message.type) {
+        case 'selectEnv': {
+          if (message.env) {
+            envStateService.setSelectedEnvironment(document.uri, message.env);
+          }
+          break;
+        }
+
         case 'edit': {
           isUpdatingFromWebview = true;
           try {
@@ -91,11 +104,41 @@ export class ThothEditorProvider implements vscode.CustomTextEditorProvider {
         }
 
         case 'sendRequest': {
-          const response = await executeThothRequest(message.request);
-          webviewPanel.webview.postMessage({
-            type: 'response',
-            response
-          });
+          const selectedEnv = message.selectedEnv || envStateService.getSelectedEnvironment(document.uri);
+          envStateService.setSelectedEnvironment(document.uri, selectedEnv);
+
+          const resolveResult = await resolveRequestVariablesWithRules(
+            message.request,
+            selectedEnv,
+            document.uri
+          );
+
+          if (resolveResult.error) {
+            vscode.window.showErrorMessage(resolveResult.error);
+            webviewPanel.webview.postMessage({
+              type: 'response',
+              response: {
+                ok: false,
+                status: 0,
+                statusText: 'Variable Error',
+                durationMs: 0,
+                headers: {},
+                body: resolveResult.error,
+                contentType: 'text/plain',
+                sizeBytes: 0,
+                error: resolveResult.error
+              }
+            });
+            break;
+          }
+
+          if (resolveResult.resolved) {
+            const response = await executeThothRequest(resolveResult.resolved);
+            webviewPanel.webview.postMessage({
+              type: 'response',
+              response
+            });
+          }
           break;
         }
       }

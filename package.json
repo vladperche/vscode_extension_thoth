@@ -2,8 +2,8 @@
   "name": "thoth",
   "displayName": "Thoth",
   "description": "HTTP Request Client for VS Code .thoth files",
-  "version": "0.2.0",
-  "publisher": "thoth-dev",
+  "version": "0.4.0",
+  "publisher": "VladimirPercheCruz",
   "repository": {
     "type": "git",
     "url": "https://github.com/vladperche/vscode_extension_thoth"
@@ -19,7 +19,9 @@
   "activationEvents": [
     "onCustomEditor:thoth.editor",
     "onCustomEditor:thoth.curlEditor",
-    "onLanguage:thoth"
+    "onCustomEditor:thoth.varsEditor",
+    "onLanguage:thoth",
+    "onLanguage:thothvars"
   ],
   "capabilities": {
     "workspaceTrust": {
@@ -28,6 +30,21 @@
   },
   "main": "./out/extension.js",
   "contributes": {
+    "configuration": {
+      "title": "Thoth Client",
+      "properties": {
+        "thoth-client.environmentVariables": {
+          "type": "object",
+          "scope": "resource",
+          "default": {
+            "$shared": {
+              "baseUrl": "http://localhost:3000"
+            }
+          },
+          "description": "Workspace secret environment variables for Thoth HTTP Client"
+        }
+      }
+    },
     "languages": [
       {
         "id": "thoth",
@@ -37,6 +54,16 @@
         ],
         "extensions": [
           ".thoth"
+        ]
+      },
+      {
+        "id": "thothvars",
+        "aliases": [
+          "Thoth Variables",
+          "thothvars"
+        ],
+        "extensions": [
+          ".thothvars"
         ]
       }
     ],
@@ -60,6 +87,16 @@
           }
         ],
         "priority": "option"
+      },
+      {
+        "viewType": "thoth.varsEditor",
+        "displayName": "Thoth Variables Editor",
+        "selector": [
+          {
+            "filenamePattern": "*.thothvars"
+          }
+        ],
+        "priority": "default"
       }
     ],
     "commands": [

@@ -1,5 +1,6 @@
 (function () {
   const vscode = acquireVsCodeApi();
+  const savedState = vscode.getState() || {};
 
   // State
   let state = {
@@ -13,6 +14,8 @@
     response: null,
     activeTab: "body",
     activeReqTab: "query", // 'query' | 'headers'
+    selectedEnv: savedState.selectedEnv || "$shared",
+    availableEnvs: ["$shared"],
     isSending: false
   };
 
@@ -22,6 +25,7 @@
   const elUrl = document.getElementById("request-url");
   const elBtnSave = document.getElementById("btn-save");
   const elBtnSend = document.getElementById("btn-send");
+  const elReqEnvSelect = document.getElementById("request-env-select");
 
   // Query & Headers Tab Elements
   const elTabReqQuery = document.getElementById("tab-req-query");
@@ -63,6 +67,12 @@
       vscode.postMessage({ type: "save" });
     }
   });
+
+  function saveWebviewState() {
+    vscode.setState({
+      selectedEnv: state.selectedEnv
+    });
+  }
 
   // Synchronize state with Extension Document
   function notifyDocumentChange() {
@@ -123,6 +133,7 @@
     renderKVTable(elQueryTable, state.queryParams, "query");
     renderKVTable(elHeadersTable, state.headersParams, "header");
     updateBadges();
+    renderEnvOptions();
 
     elBodyType.value = state.bodyType;
     if (state.bodyType === "none") {
@@ -135,6 +146,19 @@
     elBodyTextarea.value = state.bodyText;
 
     renderResponse();
+  }
+
+  function renderEnvOptions() {
+    elReqEnvSelect.innerHTML = "";
+    state.availableEnvs.forEach(envName => {
+      const opt = document.createElement("option");
+      opt.value = envName;
+      opt.textContent = envName;
+      if (envName === state.selectedEnv) {
+        opt.selected = true;
+      }
+      elReqEnvSelect.appendChild(opt);
+    });
   }
 
   function renderReqTabs() {
@@ -285,6 +309,15 @@
     notifyDocumentChange();
   });
 
+  elReqEnvSelect.addEventListener("change", (e) => {
+    state.selectedEnv = e.target.value;
+    saveWebviewState();
+    vscode.postMessage({
+      type: "selectEnv",
+      env: state.selectedEnv
+    });
+  });
+
   elTabReqQuery.addEventListener("click", () => {
     state.activeReqTab = "query";
     renderReqTabs();
@@ -373,6 +406,7 @@
 
     vscode.postMessage({
       type: "sendRequest",
+      selectedEnv: state.selectedEnv,
       request: {
         name: state.name,
         method: state.method,
@@ -443,6 +477,20 @@
         }
 
         renderAll();
+        break;
+      }
+
+      case "environmentsList": {
+        if (Array.isArray(message.environments)) {
+          state.availableEnvs = message.environments;
+          if (message.selectedEnv && state.availableEnvs.includes(message.selectedEnv)) {
+            state.selectedEnv = message.selectedEnv;
+          } else if (!state.availableEnvs.includes(state.selectedEnv)) {
+            state.selectedEnv = "$shared";
+          }
+          saveWebviewState();
+          renderEnvOptions();
+        }
         break;
       }
 

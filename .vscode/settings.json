@@ -1,5 +1,19 @@
 {
-    "rest-client.environmentVariables": {
-        "$shared": {}
+    "thoth-client.environmentVariables": {
+        "$shared": {
+
+        },
+        "env_name1": {
+            "VAR1": "value1",
+            "VAR2": "value2"
+        },
+        "env_name2": {
+            "VAR1": "value3",
+            "VAR2": "value4"
+        },
+        "env_name3": {
+            "VAR1": "value5",
+            "VAR2": "value6"
+        }
     }
 }

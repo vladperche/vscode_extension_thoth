@@ -2,6 +2,8 @@ import * as vscode from 'vscode';
 import { parseThothDocument } from './ThothDocument.js';
 import { generateCurlCommand } from './CurlGenerator.js';
 import { getCurlWebviewHtml } from '../webview/templateCurl.js';
+import { resolveRequestVariablesWithRules } from '../services/VariableResolver.js';
+import { envStateService } from '../services/EnvironmentStateService.js';
 
 export class ThothCurlEditorProvider implements vscode.CustomTextEditorProvider {
   public static readonly viewType = 'thoth.curlEditor';
@@ -39,9 +41,18 @@ export class ThothCurlEditorProvider implements vscode.CustomTextEditorProvider 
 
     webviewPanel.webview.html = getCurlWebviewHtml(webviewPanel.webview, this.context.extensionUri);
 
-    const updateWebview = () => {
+    const updateWebview = async () => {
       const docData = parseThothDocument(document.getText());
-      const curlText = generateCurlCommand(docData);
+      const selectedEnv = envStateService.getSelectedEnvironment(document.uri);
+      const resolveResult = await resolveRequestVariablesWithRules(docData, selectedEnv, document.uri);
+      
+      let curlText = '';
+      if (resolveResult.error) {
+        curlText = `# Error: ${resolveResult.error}`;
+      } else if (resolveResult.resolved) {
+        curlText = generateCurlCommand(resolveResult.resolved);
+      }
+
       webviewPanel.webview.postMessage({
         type: 'loadCurl',
         name: docData.name,
@@ -49,11 +60,11 @@ export class ThothCurlEditorProvider implements vscode.CustomTextEditorProvider 
       });
     };
 
-    updateWebview();
+    await updateWebview();
 
-    const changeDocumentSubscription = vscode.workspace.onDidChangeTextDocument(e => {
+    const changeDocumentSubscription = vscode.workspace.onDidChangeTextDocument(async e => {
       if (e.document.uri.toString() === document.uri.toString()) {
-        updateWebview();
+        await updateWebview();
       }
     });
 
