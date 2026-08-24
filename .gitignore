@@ -1,0 +1,16 @@
+# Please, for this project, do not ignore the following files:
+# .vscode folder, as it contains important configuration for the development environment
+
+
+# Default .gitignore file for Node.js projects
+node_modules/
+out/
+.vscode-test/
+*.vsix
+.DS_Store
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+

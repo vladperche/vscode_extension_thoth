@@ -1,0 +1,16 @@
+{
+    "name": "Login",
+    "method": "POST",
+    "url": "https://api.example.com/login",
+    "query": {
+        "redirect_to": "/home",
+        "keep_logged": true
+    },
+    "headers": {
+        "Content-Type": "application/json"
+    },
+    "body": {
+        "username": "{{username}}",
+        "password": "{{password}}"
+    }
+}

@@ -1,0 +1,83 @@
+{
+  "name": "thoth",
+  "displayName": "Thoth",
+  "description": "HTTP Request Client for VS Code .thoth files",
+  "version": "0.2.0",
+  "publisher": "thoth-dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vladperche/vscode_extension_thoth"
+  },
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Network",
+    "Other"
+  ],
+  "icon": "resources/icon.png",
+  "activationEvents": [
+    "onCustomEditor:thoth.editor",
+    "onCustomEditor:thoth.curlEditor",
+    "onLanguage:thoth"
+  ],
+  "capabilities": {
+    "workspaceTrust": {
+      "supported": true
+    }
+  },
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "thoth",
+        "aliases": [
+          "Thoth HTTP Request",
+          "thoth"
+        ],
+        "extensions": [
+          ".thoth"
+        ]
+      }
+    ],
+    "customEditors": [
+      {
+        "viewType": "thoth.editor",
+        "displayName": "Thoth HTTP Request",
+        "selector": [
+          {
+            "filenamePattern": "*.thoth"
+          }
+        ],
+        "priority": "default"
+      },
+      {
+        "viewType": "thoth.curlEditor",
+        "displayName": "Show curl",
+        "selector": [
+          {
+            "filenamePattern": "*.thoth"
+          }
+        ],
+        "priority": "option"
+      }
+    ],
+    "commands": [
+      {
+        "command": "thoth.newRequest",
+        "title": "Thoth: Create New HTTP Request"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "build": "tsc -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.80.0",
+    "typescript": "^5.3.3"
+  }
+}
