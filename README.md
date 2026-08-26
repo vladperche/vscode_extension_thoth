@@ -26,13 +26,17 @@
 
 ### 1. Request Files (`*.thoth`)
 
-Requests are stored in clean JSON format:
+To create your first request, just create a file with the `*.thoth` extension, and when the file is opened, the **Thoth Editor** will be activated:
+![Simple request example](resources/screen-01-sample.png)
 
+Just select the Method, insert the **URL** and/or the parameters, or the **Body**, and click on the **Send** button.
+
+Requests are stored in clean JSON format:
 ```json
 {
     "name": "Login Request",
     "method": "POST",
-    "url": "https://{{base_url}}/api/login",
+    "url": "https://api.example.com/login",
     "query": {
         "redirect_to": "/home"
     },
@@ -40,15 +44,22 @@ Requests are stored in clean JSON format:
         "Content-Type": "application/json"
     },
     "body": {
-        "username": "{{username}}",
-        "password": "{{password}}"
+        "key": "value"
     }
 }
 ```
 
 ### 2. Variable Files (`*.thothvars`)
 
-Variable collections are stored in structured JSON with `$shared` and custom environment blocks:
+Variables are a collections of values that can be reused acrros your requests.
+To create a variable, first create a file with the `*.thothvars` extension.
+When the file is opened, the **Thoth Vars Editor** will be showed:
+![Thoth Vars Editor](resources/screen-02-variables.png)
+
+Variables are grouped by Environment, so you can manage the same request and reuse it on each environment with diferent values.
+The `$shared` Environment is used when you want to have a variable that have the same value on all Environments.
+
+Variable collections are stored in structured JSON grouped by environments blocks:
 
 ```json
 {
@@ -65,6 +76,9 @@ Variable collections are stored in structured JSON with `$shared` and custom env
     }
 }
 ```
+
+**Security tips**
+DO NOT use the _variable_ files to save SECRETS, for example: passwords, key or tokens.
 
 ### 3. Workspace Secrets (`.vscode/settings.json`)
 
@@ -83,11 +97,15 @@ To keep sensitive keys out of source control, store workspace secrets in `.vscod
 }
 ```
 
----
+**Security tips**
+REMEMBER to ALWAYS include `.vscode` in your `gitignore` file to avoid **sensitive data** to be stored in your **repository**.
 
-## Variable Resolution Rules
+### 4 Using variables and secrets
 
-When you click **[SEND]** or view **Show cURL**, Thoth resolves `{{variable_name}}` placeholders using the following cascade:
+To use _variables_ OR _secrets_ inside your request, just open the request, and type the _variable name_ in any part of your request, envolvig it on a _double curly braces_, example:
+![Variables usage](resources/screen-03-variables_usage.png)
+
+When you click **SEND** or view **Show cURL**, Thoth resolves `{{variable_name}}` placeholders using the following cascade:
 
 1. **Folder Hierarchy**: Traverses folders starting from the current `.thoth` file's directory up to `${workspaceFolder}` looking for `*.thothvars` files.
 2. **Environment & $shared**: Checks the selected Environment section first, followed by `$shared`.

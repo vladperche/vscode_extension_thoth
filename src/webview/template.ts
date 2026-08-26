@@ -48,7 +48,7 @@ export function getWebviewHtml(webview: vscode.Webview, extensionUri: vscode.Uri
       </div>
     </div>
 
-    <!-- Grouped Query Parameters & Headers Tabs -->
+    <!-- Grouped Query Parameters, Headers & Body Tabs -->
     <div class="thoth-card">
       <div class="thoth-tabs-header">
         <div class="thoth-tabs">
@@ -57,6 +57,9 @@ export function getWebviewHtml(webview: vscode.Webview, extensionUri: vscode.Uri
           </div>
           <div id="tab-req-headers" class="tab-item">
             Headers <span id="badge-headers-count" class="tab-badge">0</span>
+          </div>
+          <div id="tab-req-body" class="tab-item">
+            Body
           </div>
         </div>
         <div class="thoth-tab-actions">
@@ -68,33 +71,38 @@ export function getWebviewHtml(webview: vscode.Webview, extensionUri: vscode.Uri
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
             Add Header
           </button>
+          <button id="btn-add-form-field" class="btn-icon" style="display: none;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            Add Form Field
+          </button>
         </div>
       </div>
+
+      <!-- Tab Panel: Query -->
       <div id="panel-req-query" class="tab-panel">
         <div id="query-table-body"></div>
       </div>
+
+      <!-- Tab Panel: Headers -->
       <div id="panel-req-headers" class="tab-panel" style="display: none;">
         <div id="headers-table-body"></div>
       </div>
-    </div>
 
-    <!-- Body -->
-    <div class="thoth-card">
-      <div class="thoth-section-header">
-        <span class="thoth-section-title">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-          Body
-        </span>
-        <div class="thoth-body-controls">
+      <!-- Tab Panel: Body -->
+      <div id="panel-req-body" class="tab-panel" style="display: none;">
+        <div class="thoth-body-controls" style="margin-bottom: 10px;">
+          <label for="body-type" style="font-weight: 600; font-size: 12px; margin-right: 6px;">Body Type:</label>
           <select id="body-type" class="thoth-body-type-select">
             <option value="json">JSON</option>
             <option value="text">Text / Raw</option>
+            <option value="urlencoded">x-www-form-urlencoded</option>
             <option value="none">None</option>
           </select>
-          <button id="btn-format-body" class="btn-icon">Format JSON</button>
+          <button id="btn-format-body" class="btn-icon" style="margin-left: auto;">Format JSON</button>
         </div>
+        <textarea id="body-textarea" class="thoth-body-textarea" placeholder="{ &#10;  &quot;key&quot;: &quot;value&quot;&#10;}"></textarea>
+        <div id="form-table-body" style="display: none;"></div>
       </div>
-      <textarea id="body-textarea" class="thoth-body-textarea" placeholder="{ &#10;  &quot;key&quot;: &quot;value&quot;&#10;}"></textarea>
     </div>
 
     <!-- Send & Environment Row -->
@@ -105,7 +113,7 @@ export function getWebviewHtml(webview: vscode.Webview, extensionUri: vscode.Uri
           <option value="$shared">$shared</option>
         </select>
       </div>
-      <button id="btn-send" class="btn btn-send">[ SEND ]</button>
+      <button id="btn-send" class="btn btn-send">SEND</button>
     </div>
 
     <!-- Response -->

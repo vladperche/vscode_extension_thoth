@@ -56,7 +56,17 @@ export async function executeThothRequest(request: ThothRequestData): Promise<Th
     let bodyPayload: string | undefined = undefined;
 
     if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && request.body !== undefined && request.body !== null && request.body !== '') {
-      if (typeof request.body === 'object') {
+      const isFormUrlEncoded = Object.entries(headersInit).some(
+        ([k, v]) => k.toLowerCase() === 'content-type' && String(v).includes('x-www-form-urlencoded')
+      );
+
+      if (isFormUrlEncoded && typeof request.body === 'object') {
+        const params = new URLSearchParams();
+        for (const [k, v] of Object.entries(request.body)) {
+          params.append(k, String(v));
+        }
+        bodyPayload = params.toString();
+      } else if (typeof request.body === 'object') {
         bodyPayload = JSON.stringify(request.body);
         if (!Object.keys(headersInit).some(k => k.toLowerCase() === 'content-type')) {
           headersInit['Content-Type'] = 'application/json';

@@ -9,11 +9,12 @@
     url: "",
     queryParams: [],
     headersParams: [],
+    formParams: [],
     bodyText: "",
     bodyType: "json",
     response: null,
     activeTab: "body",
-    activeReqTab: "query", // 'query' | 'headers'
+    activeReqTab: "query", // 'query' | 'headers' | 'body'
     selectedEnv: savedState.selectedEnv || "$shared",
     availableEnvs: ["$shared"],
     isSending: false
@@ -27,17 +28,21 @@
   const elBtnSend = document.getElementById("btn-send");
   const elReqEnvSelect = document.getElementById("request-env-select");
 
-  // Query & Headers Tab Elements
+  // Query, Headers & Body Tab Elements
   const elTabReqQuery = document.getElementById("tab-req-query");
   const elTabReqHeaders = document.getElementById("tab-req-headers");
+  const elTabReqBody = document.getElementById("tab-req-body");
   const elPanelReqQuery = document.getElementById("panel-req-query");
   const elPanelReqHeaders = document.getElementById("panel-req-headers");
+  const elPanelReqBody = document.getElementById("panel-req-body");
   const elBtnAddQuery = document.getElementById("btn-add-query");
   const elBtnAddHeader = document.getElementById("btn-add-header");
+  const elBtnAddFormField = document.getElementById("btn-add-form-field");
   const elBadgeQuery = document.getElementById("badge-query-count");
   const elBadgeHeaders = document.getElementById("badge-headers-count");
   const elQueryTable = document.getElementById("query-table-body");
   const elHeadersTable = document.getElementById("headers-table-body");
+  const elFormTable = document.getElementById("form-table-body");
 
   // Body Elements
   const elBodyType = document.getElementById("body-type");
@@ -103,6 +108,14 @@
       }
     } else if (state.bodyType === "text") {
       bodyPayload = state.bodyText;
+    } else if (state.bodyType === "urlencoded") {
+      const formObj = {};
+      state.formParams.forEach(item => {
+        if (item.enabled && item.key.trim()) {
+          formObj[item.key.trim()] = item.value;
+        }
+      });
+      bodyPayload = formObj;
     } else if (state.bodyType === "none") {
       bodyPayload = null;
     }
@@ -122,6 +135,24 @@
     });
   }
 
+  // Sync Content-Type header when urlencoded is selected
+  function syncFormUrlEncodedHeader() {
+    let contentTypeHeader = state.headersParams.find(h => h.key.trim().toLowerCase() === "content-type");
+    if (contentTypeHeader) {
+      contentTypeHeader.value = "application/x-www-form-urlencoded";
+      contentTypeHeader.enabled = true;
+    } else {
+      state.headersParams.push({
+        id: generateId(),
+        key: "Content-Type",
+        value: "application/x-www-form-urlencoded",
+        enabled: true
+      });
+    }
+    renderKVTable(elHeadersTable, state.headersParams, "header");
+    updateBadges();
+  }
+
   // Render Methods
   function renderAll() {
     elName.value = state.name;
@@ -132,20 +163,34 @@
     renderReqTabs();
     renderKVTable(elQueryTable, state.queryParams, "query");
     renderKVTable(elHeadersTable, state.headersParams, "header");
+    renderFormTable();
     updateBadges();
     renderEnvOptions();
 
     elBodyType.value = state.bodyType;
-    if (state.bodyType === "none") {
-      elBodyTextarea.style.display = "none";
-      elBtnFormatBody.style.display = "none";
-    } else {
-      elBodyTextarea.style.display = "block";
-      elBtnFormatBody.style.display = state.bodyType === "json" ? "inline-flex" : "none";
-    }
+    renderBodyControls();
     elBodyTextarea.value = state.bodyText;
 
     renderResponse();
+  }
+
+  function renderBodyControls() {
+    if (state.bodyType === "none") {
+      elBodyTextarea.style.display = "none";
+      elFormTable.style.display = "none";
+      elBtnFormatBody.style.display = "none";
+      elBtnAddFormField.style.display = "none";
+    } else if (state.bodyType === "urlencoded") {
+      elBodyTextarea.style.display = "none";
+      elFormTable.style.display = "block";
+      elBtnFormatBody.style.display = "none";
+      elBtnAddFormField.style.display = (state.activeReqTab === "body") ? "inline-flex" : "none";
+    } else {
+      elBodyTextarea.style.display = "block";
+      elFormTable.style.display = "none";
+      elBtnFormatBody.style.display = state.bodyType === "json" ? "inline-flex" : "none";
+      elBtnAddFormField.style.display = "none";
+    }
   }
 
   function renderEnvOptions() {
@@ -162,21 +207,17 @@
   }
 
   function renderReqTabs() {
-    if (state.activeReqTab === "query") {
-      elTabReqQuery.className = "tab-item active";
-      elTabReqHeaders.className = "tab-item";
-      elPanelReqQuery.style.display = "block";
-      elPanelReqHeaders.style.display = "none";
-      elBtnAddQuery.style.display = "inline-flex";
-      elBtnAddHeader.style.display = "none";
-    } else {
-      elTabReqQuery.className = "tab-item";
-      elTabReqHeaders.className = "tab-item active";
-      elPanelReqQuery.style.display = "none";
-      elPanelReqHeaders.style.display = "block";
-      elBtnAddQuery.style.display = "none";
-      elBtnAddHeader.style.display = "inline-flex";
-    }
+    elTabReqQuery.className = `tab-item ${state.activeReqTab === "query" ? "active" : ""}`;
+    elTabReqHeaders.className = `tab-item ${state.activeReqTab === "headers" ? "active" : ""}`;
+    elTabReqBody.className = `tab-item ${state.activeReqTab === "body" ? "active" : ""}`;
+
+    elPanelReqQuery.style.display = state.activeReqTab === "query" ? "block" : "none";
+    elPanelReqHeaders.style.display = state.activeReqTab === "headers" ? "block" : "none";
+    elPanelReqBody.style.display = state.activeReqTab === "body" ? "block" : "none";
+
+    elBtnAddQuery.style.display = state.activeReqTab === "query" ? "inline-flex" : "none";
+    elBtnAddHeader.style.display = state.activeReqTab === "headers" ? "inline-flex" : "none";
+    elBtnAddFormField.style.display = (state.activeReqTab === "body" && state.bodyType === "urlencoded") ? "inline-flex" : "none";
   }
 
   function updateBadges() {
@@ -246,6 +287,66 @@
       row.appendChild(valInput);
       row.appendChild(btnDelete);
       container.appendChild(row);
+    });
+  }
+
+  function renderFormTable() {
+    elFormTable.innerHTML = "";
+    if (state.formParams.length === 0) {
+      const emptyRow = document.createElement("div");
+      emptyRow.className = "thoth-empty-state";
+      emptyRow.textContent = "No Form Fields added";
+      elFormTable.appendChild(emptyRow);
+      return;
+    }
+
+    state.formParams.forEach((item, index) => {
+      const row = document.createElement("div");
+      row.className = "thoth-kv-row";
+
+      const chk = document.createElement("input");
+      chk.type = "checkbox";
+      chk.checked = item.enabled;
+      chk.addEventListener("change", (e) => {
+        item.enabled = e.target.checked;
+        notifyDocumentChange();
+      });
+
+      const keyInput = document.createElement("input");
+      keyInput.type = "text";
+      keyInput.className = "thoth-kv-input";
+      keyInput.placeholder = "Field Name";
+      keyInput.value = item.key;
+      keyInput.addEventListener("input", (e) => {
+        item.key = e.target.value;
+        notifyDocumentChange();
+      });
+
+      const valInput = document.createElement("input");
+      valInput.type = "text";
+      valInput.className = "thoth-kv-input";
+      valInput.placeholder = "Value";
+      valInput.value = item.value;
+      valInput.addEventListener("input", (e) => {
+        item.value = e.target.value;
+        notifyDocumentChange();
+      });
+
+      const btnDelete = document.createElement("button");
+      btnDelete.className = "btn-delete-row";
+      btnDelete.title = "Delete Field";
+      btnDelete.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>`;
+      btnDelete.addEventListener("click", () => {
+        state.formParams.splice(index, 1);
+        renderFormTable();
+        notifyDocumentChange();
+      });
+
+      row.appendChild(chk);
+      row.appendChild(keyInput);
+      row.appendChild(valInput);
+      row.appendChild(btnDelete);
+      elFormTable.appendChild(row);
     });
   }
 
@@ -328,6 +429,11 @@
     renderReqTabs();
   });
 
+  elTabReqBody.addEventListener("click", () => {
+    state.activeReqTab = "body";
+    renderReqTabs();
+  });
+
   elBtnAddQuery.addEventListener("click", () => {
     state.queryParams.push({ id: generateId(), key: "", value: "", enabled: true });
     renderKVTable(elQueryTable, state.queryParams, "query");
@@ -342,15 +448,18 @@
     notifyDocumentChange();
   });
 
+  elBtnAddFormField.addEventListener("click", () => {
+    state.formParams.push({ id: generateId(), key: "", value: "", enabled: true });
+    renderFormTable();
+    notifyDocumentChange();
+  });
+
   elBodyType.addEventListener("change", (e) => {
     state.bodyType = e.target.value;
-    if (state.bodyType === "none") {
-      elBodyTextarea.style.display = "none";
-      elBtnFormatBody.style.display = "none";
-    } else {
-      elBodyTextarea.style.display = "block";
-      elBtnFormatBody.style.display = state.bodyType === "json" ? "inline-flex" : "none";
+    if (state.bodyType === "urlencoded") {
+      syncFormUrlEncodedHeader();
     }
+    renderBodyControls();
     notifyDocumentChange();
   });
 
@@ -400,6 +509,14 @@
       }
     } else if (state.bodyType === "text") {
       bodyPayload = state.bodyText;
+    } else if (state.bodyType === "urlencoded") {
+      const formObj = {};
+      state.formParams.forEach(item => {
+        if (item.enabled && item.key.trim()) {
+          formObj[item.key.trim()] = item.value;
+        }
+      });
+      bodyPayload = formObj;
     } else if (state.bodyType === "none") {
       bodyPayload = null;
     }
@@ -464,16 +581,48 @@
           enabled: true
         })) : [];
 
-        // Parse body and bodyType persistence
+        // Determine bodyType and formParams
+        const isUrlEncodedHeader = state.headersParams.some(
+          h => h.enabled && h.key.trim().toLowerCase() === "content-type" && h.value.includes("x-www-form-urlencoded")
+        );
+
         if (doc.body === null || doc.body === undefined) {
           state.bodyType = "none";
           state.bodyText = "";
+          state.formParams = [];
+        } else if (isUrlEncodedHeader || (typeof doc.body === "object" && !Array.isArray(doc.body) && Object.keys(doc.body).length > 0 && !state.bodyText)) {
+          if (typeof doc.body === "object" && doc.body !== null) {
+            state.bodyType = "urlencoded";
+            state.formParams = Object.entries(doc.body).map(([k, v]) => ({
+              id: generateId(),
+              key: k,
+              value: String(v),
+              enabled: true
+            }));
+            state.bodyText = "";
+          } else if (typeof doc.body === "string") {
+            state.bodyType = "urlencoded";
+            try {
+              const params = new URLSearchParams(doc.body);
+              state.formParams = Array.from(params.entries()).map(([k, v]) => ({
+                id: generateId(),
+                key: k,
+                value: v,
+                enabled: true
+              }));
+            } catch {
+              state.formParams = [];
+            }
+            state.bodyText = "";
+          }
         } else if (typeof doc.body === "object") {
           state.bodyType = "json";
           state.bodyText = JSON.stringify(doc.body, null, 2);
+          state.formParams = [];
         } else {
           state.bodyType = "text";
           state.bodyText = String(doc.body);
+          state.formParams = [];
         }
 
         renderAll();
@@ -497,7 +646,7 @@
       case "response": {
         state.isSending = false;
         elBtnSend.disabled = false;
-        elBtnSend.innerHTML = `[ SEND ]`;
+        elBtnSend.innerHTML = `SEND`;
         state.response = message.response;
         renderResponse();
         break;

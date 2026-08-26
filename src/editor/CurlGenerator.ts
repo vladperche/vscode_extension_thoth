@@ -31,6 +31,10 @@ export function generateCurlCommand(data: ThothRequestData): string {
   parts.push(`curl -X ${method} "${finalUrl}"`);
 
   // 2. Add Headers
+  const isFormUrlEncoded = data.headers && Object.entries(data.headers).some(
+    ([k, v]) => k.toLowerCase() === 'content-type' && String(v).includes('x-www-form-urlencoded')
+  );
+
   if (data.headers && typeof data.headers === 'object') {
     for (const [key, val] of Object.entries(data.headers)) {
       if (key.trim() !== '') {
@@ -43,7 +47,13 @@ export function generateCurlCommand(data: ThothRequestData): string {
   // 3. Add Body
   if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && data.body !== undefined && data.body !== null && data.body !== '') {
     let bodyString = '';
-    if (typeof data.body === 'object') {
+    if (isFormUrlEncoded && typeof data.body === 'object') {
+      const params = new URLSearchParams();
+      for (const [k, v] of Object.entries(data.body)) {
+        params.append(k, String(v));
+      }
+      bodyString = params.toString();
+    } else if (typeof data.body === 'object') {
       bodyString = JSON.stringify(data.body, null, 2);
     } else {
       bodyString = String(data.body);
