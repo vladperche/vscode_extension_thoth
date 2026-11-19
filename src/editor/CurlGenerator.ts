@@ -1,4 +1,4 @@
-import { ThothRequestData, normalizeQueryParams } from './ThothDocument.js';
+import { ThothRequestData, normalizeQueryParams, normalizeBodyType } from './ThothDocument.js';
 
 export function generateCurlCommand(data: ThothRequestData): string {
   const method = (data.method || 'GET').toUpperCase();
@@ -29,10 +29,6 @@ export function generateCurlCommand(data: ThothRequestData): string {
   parts.push(`curl -X ${method} "${finalUrl}"`);
 
   // 2. Add Headers
-  const isFormUrlEncoded = data.headers && Object.entries(data.headers).some(
-    ([k, v]) => k.toLowerCase() === 'content-type' && String(v).includes('x-www-form-urlencoded')
-  );
-
   if (data.headers && typeof data.headers === 'object') {
     for (const [key, val] of Object.entries(data.headers)) {
       if (key.trim() !== '') {
@@ -43,23 +39,36 @@ export function generateCurlCommand(data: ThothRequestData): string {
   }
 
   // 3. Add Body
-  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && data.body !== undefined && data.body !== null && data.body !== '') {
+  const bodyType = normalizeBodyType(data.bodyType, data.headers, data.body);
+  if (!['GET', 'HEAD'].includes(method) && bodyType !== 'none' && data.body !== undefined && data.body !== null && data.body !== '') {
     let bodyString = '';
-    if (isFormUrlEncoded && typeof data.body === 'object') {
-      const params = new URLSearchParams();
-      for (const [k, v] of Object.entries(data.body)) {
-        params.append(k, String(v));
+    if (bodyType === 'urlencoded') {
+      if (typeof data.body === 'object') {
+        const params = new URLSearchParams();
+        for (const [k, v] of Object.entries(data.body)) {
+          if (k.trim() !== '') {
+            params.append(k, String(v));
+          }
+        }
+        bodyString = params.toString();
+      } else {
+        bodyString = String(data.body);
       }
-      bodyString = params.toString();
-    } else if (typeof data.body === 'object') {
-      bodyString = JSON.stringify(data.body, null, 2);
+    } else if (bodyType === 'json') {
+      bodyString = typeof data.body === 'string'
+        ? data.body
+        : JSON.stringify(data.body, null, 2);
     } else {
-      bodyString = String(data.body);
+      bodyString = typeof data.body === 'object'
+        ? JSON.stringify(data.body)
+        : String(data.body);
     }
 
-    // Escape single quotes for single-quoted string shell safety
-    const safeBody = bodyString.replace(/'/g, "'\\''");
-    parts.push(`  -d '${safeBody}'`);
+    if (bodyString !== '') {
+      // Escape single quotes for single-quoted string shell safety
+      const safeBody = bodyString.replace(/'/g, "'\\''");
+      parts.push(`  -d '${safeBody}'`);
+    }
   }
 
   return parts.join(' \\\n');

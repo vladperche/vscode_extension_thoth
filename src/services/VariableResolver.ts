@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { ThothRequestData, ThothQueryParam, normalizeQueryParams } from '../editor/ThothDocument.js';
+import { ThothRequestData, ThothQueryParam, normalizeQueryParams, normalizeBodyType } from '../editor/ThothDocument.js';
 import { parseThothVarsDocument } from '../editor/ThothVarsDocument.js';
 import { getWorkspaceEnvironmentVariables } from './WorkspaceEnvService.js';
 import { getDirectoryHierarchy } from './EnvironmentDiscovery.js';
@@ -167,8 +167,21 @@ export async function resolveRequestVariablesWithRules(
   }
 
   // 4. Resolve Body
+  const bodyType = normalizeBodyType(request.bodyType, resolvedHeaders, request.body);
   let resolvedBody: any = request.body;
-  if (typeof request.body === 'string') {
+  if (bodyType === 'urlencoded' && typeof request.body === 'object' && request.body !== null && !Array.isArray(request.body)) {
+    const resolvedForm: Record<string, string> = {};
+    for (const [k, v] of Object.entries(request.body)) {
+      const keyRes = resolveVariablesInStringWithRules(k, targetEnv, documentUri);
+      if (keyRes.error) return { error: keyRes.error };
+
+      const valRes = resolveVariablesInStringWithRules(String(v), targetEnv, documentUri);
+      if (valRes.error) return { error: valRes.error };
+
+      resolvedForm[keyRes.result] = valRes.result;
+    }
+    resolvedBody = resolvedForm;
+  } else if (typeof request.body === 'string') {
     const bodyRes = resolveVariablesInStringWithRules(request.body, targetEnv, documentUri);
     if (bodyRes.error) return { error: bodyRes.error };
     resolvedBody = bodyRes.result;
@@ -189,6 +202,7 @@ export async function resolveRequestVariablesWithRules(
       url: urlRes.result,
       query: resolvedQuery,
       headers: resolvedHeaders,
+      bodyType,
       body: resolvedBody
     }
   };

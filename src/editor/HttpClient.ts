@@ -1,4 +1,4 @@
-import { ThothRequestData, normalizeQueryParams } from './ThothDocument.js';
+import { ThothRequestData, normalizeQueryParams, normalizeBodyType } from './ThothDocument.js';
 
 export interface ThothHttpResponse {
   ok: boolean;
@@ -51,26 +51,49 @@ export async function executeThothRequest(request: ThothRequestData): Promise<Th
 
     // 3. Build Body & Method
     const method = (request.method || 'GET').toUpperCase();
+    const bodyType = normalizeBodyType(request.bodyType, headersInit, request.body);
     let bodyPayload: string | undefined = undefined;
 
-    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && request.body !== undefined && request.body !== null && request.body !== '') {
-      const isFormUrlEncoded = Object.entries(headersInit).some(
-        ([k, v]) => k.toLowerCase() === 'content-type' && String(v).includes('x-www-form-urlencoded')
-      );
+    if (!['GET', 'HEAD'].includes(method) && bodyType !== 'none') {
+      const hasContentType = Object.keys(headersInit).some(k => k.toLowerCase() === 'content-type');
 
-      if (isFormUrlEncoded && typeof request.body === 'object') {
-        const params = new URLSearchParams();
-        for (const [k, v] of Object.entries(request.body)) {
-          params.append(k, String(v));
+      if (bodyType === 'urlencoded') {
+        if (typeof request.body === 'object' && request.body !== null) {
+          const params = new URLSearchParams();
+          for (const [k, v] of Object.entries(request.body)) {
+            if (k.trim() !== '') {
+              params.append(k, String(v));
+            }
+          }
+          const encoded = params.toString();
+          if (encoded !== '') {
+            bodyPayload = encoded;
+          }
+        } else if (request.body !== undefined && request.body !== null && request.body !== '') {
+          bodyPayload = String(request.body);
         }
-        bodyPayload = params.toString();
-      } else if (typeof request.body === 'object') {
-        bodyPayload = JSON.stringify(request.body);
-        if (!Object.keys(headersInit).some(k => k.toLowerCase() === 'content-type')) {
-          headersInit['Content-Type'] = 'application/json';
+
+        if (bodyPayload !== undefined && !hasContentType) {
+          headersInit['Content-Type'] = 'application/x-www-form-urlencoded';
         }
-      } else {
-        bodyPayload = String(request.body);
+      } else if (bodyType === 'json') {
+        if (request.body !== undefined && request.body !== null && request.body !== '') {
+          bodyPayload = typeof request.body === 'string'
+            ? request.body
+            : JSON.stringify(request.body);
+          if (!hasContentType) {
+            headersInit['Content-Type'] = 'application/json';
+          }
+        }
+      } else if (bodyType === 'text') {
+        if (request.body !== undefined && request.body !== null && request.body !== '') {
+          bodyPayload = typeof request.body === 'object'
+            ? JSON.stringify(request.body)
+            : String(request.body);
+          if (!hasContentType) {
+            headersInit['Content-Type'] = 'text/plain';
+          }
+        }
       }
     }
 

@@ -69,7 +69,7 @@
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
       e.preventDefault();
       e.stopPropagation();
-      vscode.postMessage({ type: "save" });
+      vscode.postMessage({ type: "save", data: buildDocumentPayload() });
     }
   });
 
@@ -79,8 +79,7 @@
     });
   }
 
-  // Synchronize state with Extension Document
-  function notifyDocumentChange() {
+  function buildDocumentPayload() {
     const queryList = [];
     state.queryParams.forEach(item => {
       if (item.key.trim()) {
@@ -127,32 +126,47 @@
       bodyPayload = null;
     }
 
-    const payload = {
+    return {
       name: state.name || "Request",
       method: state.method || "GET",
       url: state.url || "",
       query: queryList,
       headers: headersObj,
+      bodyType: state.bodyType,
       body: bodyPayload
     };
+  }
 
+  // Synchronize state with Extension Document
+  function notifyDocumentChange() {
     vscode.postMessage({
       type: "edit",
-      data: payload
+      data: buildDocumentPayload()
     });
   }
 
-  // Sync Content-Type header when urlencoded is selected
-  function syncFormUrlEncodedHeader() {
+  // Sync Content-Type header based on selected bodyType
+  function syncContentTypeHeader(bodyType) {
+    const contentTypeMap = {
+      text: "text/plain",
+      json: "application/json",
+      urlencoded: "application/x-www-form-urlencoded"
+    };
+
+    const targetContentType = contentTypeMap[bodyType];
+    if (!targetContentType) {
+      return;
+    }
+
     let contentTypeHeader = state.headersParams.find(h => h.key.trim().toLowerCase() === "content-type");
     if (contentTypeHeader) {
-      contentTypeHeader.value = "application/x-www-form-urlencoded";
+      contentTypeHeader.value = targetContentType;
       contentTypeHeader.enabled = true;
     } else {
       state.headersParams.push({
         id: generateId(),
         key: "Content-Type",
-        value: "application/x-www-form-urlencoded",
+        value: targetContentType,
         enabled: true
       });
     }
@@ -194,6 +208,9 @@
       elBtnAddFormField.style.display = (state.activeReqTab === "body") ? "inline-flex" : "none";
     } else {
       elBodyTextarea.style.display = "block";
+      elBodyTextarea.placeholder = state.bodyType === "json"
+        ? "{\n  \"key\": \"value\"\n}"
+        : "Enter raw text body...";
       elFormTable.style.display = "none";
       elBtnFormatBody.style.display = state.bodyType === "json" ? "inline-flex" : "none";
       elBtnAddFormField.style.display = "none";
@@ -463,9 +480,7 @@
 
   elBodyType.addEventListener("change", (e) => {
     state.bodyType = e.target.value;
-    if (state.bodyType === "urlencoded") {
-      syncFormUrlEncodedHeader();
-    }
+    syncContentTypeHeader(state.bodyType);
     renderBodyControls();
     notifyDocumentChange();
   });
@@ -487,7 +502,7 @@
   });
 
   elBtnSave.addEventListener("click", () => {
-    vscode.postMessage({ type: "save" });
+    vscode.postMessage({ type: "save", data: buildDocumentPayload() });
   });
 
   elBtnSend.addEventListener("click", () => {
@@ -514,10 +529,8 @@
     });
 
     let bodyPayload = null;
-    if (state.bodyType === "json" && state.bodyText.trim()) {
-      try {
-        bodyPayload = JSON.parse(state.bodyText);
-      } catch (e) {
+    if (state.bodyType === "json") {
+      if (state.bodyText.trim()) {
         bodyPayload = state.bodyText;
       }
     } else if (state.bodyType === "text") {
@@ -543,6 +556,7 @@
         url: state.url,
         query: queryList,
         headers: headersObj,
+        bodyType: state.bodyType,
         body: bodyPayload
       }
     });
@@ -619,27 +633,40 @@
           enabled: true
         })) : [];
 
-        // Determine bodyType and formParams
-        const isUrlEncodedHeader = state.headersParams.some(
-          h => h.enabled && h.key.trim().toLowerCase() === "content-type" && h.value.includes("x-www-form-urlencoded")
-        );
+        // Determine bodyType, bodyText, and formParams
+        const validBodyTypes = ["json", "text", "urlencoded", "none"];
+        let resolvedBodyType = validBodyTypes.includes(doc.bodyType) ? doc.bodyType : null;
 
-        if (doc.body === null || doc.body === undefined) {
-          state.bodyType = "none";
+        if (!resolvedBodyType) {
+          const isUrlEncodedHeader = state.headersParams.some(
+            h => h.enabled && h.key.trim().toLowerCase() === "content-type" && h.value.toLowerCase().includes("x-www-form-urlencoded")
+          );
+          if (isUrlEncodedHeader) {
+            resolvedBodyType = "urlencoded";
+          } else if (doc.body === null || doc.body === undefined) {
+            resolvedBodyType = "none";
+          } else if (typeof doc.body === "object") {
+            resolvedBodyType = "json";
+          } else {
+            resolvedBodyType = "text";
+          }
+        }
+
+        state.bodyType = resolvedBodyType;
+
+        if (state.bodyType === "none") {
           state.bodyText = "";
           state.formParams = [];
-        } else if (isUrlEncodedHeader || (typeof doc.body === "object" && !Array.isArray(doc.body) && Object.keys(doc.body).length > 0 && !state.bodyText)) {
-          if (typeof doc.body === "object" && doc.body !== null) {
-            state.bodyType = "urlencoded";
+        } else if (state.bodyType === "urlencoded") {
+          state.bodyText = "";
+          if (typeof doc.body === "object" && doc.body !== null && !Array.isArray(doc.body)) {
             state.formParams = Object.entries(doc.body).map(([k, v]) => ({
               id: generateId(),
               key: k,
-              value: String(v),
+              value: v !== undefined && v !== null ? String(v) : "",
               enabled: true
             }));
-            state.bodyText = "";
-          } else if (typeof doc.body === "string") {
-            state.bodyType = "urlencoded";
+          } else if (typeof doc.body === "string" && doc.body.trim() !== "") {
             try {
               const params = new URLSearchParams(doc.body);
               state.formParams = Array.from(params.entries()).map(([k, v]) => ({
@@ -651,16 +678,27 @@
             } catch {
               state.formParams = [];
             }
-            state.bodyText = "";
+          } else {
+            state.formParams = [];
           }
-        } else if (typeof doc.body === "object") {
-          state.bodyType = "json";
-          state.bodyText = JSON.stringify(doc.body, null, 2);
+        } else if (state.bodyType === "json") {
           state.formParams = [];
+          if (doc.body === null || doc.body === undefined) {
+            state.bodyText = "";
+          } else if (typeof doc.body === "object") {
+            state.bodyText = JSON.stringify(doc.body, null, 2);
+          } else {
+            state.bodyText = String(doc.body);
+          }
         } else {
-          state.bodyType = "text";
-          state.bodyText = String(doc.body);
           state.formParams = [];
+          if (doc.body === null || doc.body === undefined) {
+            state.bodyText = "";
+          } else if (typeof doc.body === "object") {
+            state.bodyText = JSON.stringify(doc.body, null, 2);
+          } else {
+            state.bodyText = String(doc.body);
+          }
         }
 
         renderAll();

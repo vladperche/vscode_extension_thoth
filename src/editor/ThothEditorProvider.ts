@@ -70,6 +70,24 @@ export class ThothEditorProvider implements vscode.CustomTextEditorProvider {
       }
     });
 
+    const applyDocumentUpdate = async (data: any) => {
+      isUpdatingFromWebview = true;
+      try {
+        const newContent = serializeThothDocument(data);
+        if (newContent !== document.getText()) {
+          const edit = new vscode.WorkspaceEdit();
+          edit.replace(
+            document.uri,
+            new vscode.Range(0, 0, document.lineCount, 0),
+            newContent
+          );
+          await vscode.workspace.applyEdit(edit);
+        }
+      } finally {
+        isUpdatingFromWebview = false;
+      }
+    };
+
     webviewPanel.webview.onDidReceiveMessage(async message => {
       switch (message.type) {
         case 'selectEnv': {
@@ -80,25 +98,14 @@ export class ThothEditorProvider implements vscode.CustomTextEditorProvider {
         }
 
         case 'edit': {
-          isUpdatingFromWebview = true;
-          try {
-            const newContent = serializeThothDocument(message.data);
-            if (newContent !== document.getText()) {
-              const edit = new vscode.WorkspaceEdit();
-              edit.replace(
-                document.uri,
-                new vscode.Range(0, 0, document.lineCount, 0),
-                newContent
-              );
-              await vscode.workspace.applyEdit(edit);
-            }
-          } finally {
-            isUpdatingFromWebview = false;
-          }
+          await applyDocumentUpdate(message.data);
           break;
         }
 
         case 'save': {
+          if (message.data) {
+            await applyDocumentUpdate(message.data);
+          }
           await document.save();
           break;
         }
