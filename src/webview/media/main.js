@@ -81,10 +81,17 @@
 
   // Synchronize state with Extension Document
   function notifyDocumentChange() {
-    const queryObj = {};
+    const queryList = [];
     state.queryParams.forEach(item => {
-      if (item.enabled && item.key.trim()) {
-        queryObj[item.key.trim()] = item.value;
+      if (item.key.trim()) {
+        const entry = {
+          key: item.key.trim(),
+          value: item.value
+        };
+        if (!item.enabled) {
+          entry.enabled = false;
+        }
+        queryList.push(entry);
       }
     });
 
@@ -124,7 +131,7 @@
       name: state.name || "Request",
       method: state.method || "GET",
       url: state.url || "",
-      query: queryObj,
+      query: queryList,
       headers: headersObj,
       body: bodyPayload
     };
@@ -490,9 +497,15 @@
     elBtnSend.innerHTML = `<div class="spinner"></div> Sending...`;
 
     // Construct request data to send to extension
-    const queryObj = {};
+    const queryList = [];
     state.queryParams.forEach(item => {
-      if (item.enabled && item.key.trim()) queryObj[item.key.trim()] = item.value;
+      if (item.enabled && item.key.trim()) {
+        queryList.push({
+          key: item.key.trim(),
+          value: item.value,
+          enabled: true
+        });
+      }
     });
 
     const headersObj = {};
@@ -528,7 +541,7 @@
         name: state.name,
         method: state.method,
         url: state.url,
-        query: queryObj,
+        query: queryList,
         headers: headersObj,
         body: bodyPayload
       }
@@ -565,13 +578,38 @@
         state.method = doc.method || "GET";
         state.url = doc.url || "";
 
-        // Parse query params to array
-        state.queryParams = doc.query ? Object.entries(doc.query).map(([k, v]) => ({
-          id: generateId(),
-          key: k,
-          value: String(v),
-          enabled: true
-        })) : [];
+        // Parse query params to array (supports array and legacy object formats)
+        if (Array.isArray(doc.query)) {
+          state.queryParams = doc.query.map(item => ({
+            id: generateId(),
+            key: String(item.key ?? item.name ?? ""),
+            value: item.value !== undefined && item.value !== null ? String(item.value) : "",
+            enabled: item.enabled !== undefined ? Boolean(item.enabled) : true
+          }));
+        } else if (doc.query && typeof doc.query === "object") {
+          state.queryParams = [];
+          Object.entries(doc.query).forEach(([k, v]) => {
+            if (Array.isArray(v)) {
+              v.forEach(val => {
+                state.queryParams.push({
+                  id: generateId(),
+                  key: k,
+                  value: val !== undefined && val !== null ? String(val) : "",
+                  enabled: true
+                });
+              });
+            } else {
+              state.queryParams.push({
+                id: generateId(),
+                key: k,
+                value: v !== undefined && v !== null ? String(v) : "",
+                enabled: true
+              });
+            }
+          });
+        } else {
+          state.queryParams = [];
+        }
 
         // Parse headers to array
         state.headersParams = doc.headers ? Object.entries(doc.headers).map(([k, v]) => ({

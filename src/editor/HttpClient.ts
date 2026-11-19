@@ -1,4 +1,4 @@
-import { ThothRequestData } from './ThothDocument.js';
+import { ThothRequestData, normalizeQueryParams } from './ThothDocument.js';
 
 export interface ThothHttpResponse {
   ok: boolean;
@@ -33,11 +33,9 @@ export async function executeThothRequest(request: ThothRequestData): Promise<Th
 
     const urlObj = new URL(rawUrl);
 
-    if (request.query && typeof request.query === 'object') {
-      for (const [key, value] of Object.entries(request.query)) {
-        if (key.trim() !== '') {
-          urlObj.searchParams.append(key, String(value));
-        }
+    for (const param of normalizeQueryParams(request.query)) {
+      if (param.enabled !== false && param.key.trim() !== '') {
+        urlObj.searchParams.append(param.key.trim(), String(param.value));
       }
     }
 

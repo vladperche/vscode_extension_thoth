@@ -1,4 +1,4 @@
-import { ThothRequestData } from './ThothDocument.js';
+import { ThothRequestData, normalizeQueryParams } from './ThothDocument.js';
 
 export function generateCurlCommand(data: ThothRequestData): string {
   const method = (data.method || 'GET').toUpperCase();
@@ -15,11 +15,9 @@ export function generateCurlCommand(data: ThothRequestData): string {
   let finalUrl = rawUrl;
   try {
     const urlObj = new URL(rawUrl);
-    if (data.query && typeof data.query === 'object') {
-      for (const [key, val] of Object.entries(data.query)) {
-        if (key.trim() !== '') {
-          urlObj.searchParams.append(key, String(val));
-        }
+    for (const param of normalizeQueryParams(data.query)) {
+      if (param.enabled !== false && param.key.trim() !== '') {
+        urlObj.searchParams.append(param.key.trim(), String(param.value));
       }
     }
     finalUrl = urlObj.toString();

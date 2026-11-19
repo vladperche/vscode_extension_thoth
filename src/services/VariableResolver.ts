@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { ThothRequestData } from '../editor/ThothDocument.js';
+import { ThothRequestData, ThothQueryParam, normalizeQueryParams } from '../editor/ThothDocument.js';
 import { parseThothVarsDocument } from '../editor/ThothVarsDocument.js';
 import { getWorkspaceEnvironmentVariables } from './WorkspaceEnvService.js';
 import { getDirectoryHierarchy } from './EnvironmentDiscovery.js';
@@ -135,21 +135,21 @@ export async function resolveRequestVariablesWithRules(
   if (urlRes.error) return { error: urlRes.error };
 
   // 2. Resolve Query Params
-  const resolvedQuery: Record<string, any> = {};
-  if (request.query) {
-    for (const [k, v] of Object.entries(request.query)) {
-      const keyRes = resolveVariablesInStringWithRules(k, targetEnv, documentUri);
-      if (keyRes.error) return { error: keyRes.error };
+  const resolvedQuery: ThothQueryParam[] = [];
+  for (const param of normalizeQueryParams(request.query)) {
+    if (param.enabled === false) continue;
 
-      let valResStr = String(v);
-      if (typeof v === 'string') {
-        const valRes = resolveVariablesInStringWithRules(v, targetEnv, documentUri);
-        if (valRes.error) return { error: valRes.error };
-        valResStr = valRes.result;
-      }
+    const keyRes = resolveVariablesInStringWithRules(param.key, targetEnv, documentUri);
+    if (keyRes.error) return { error: keyRes.error };
 
-      resolvedQuery[keyRes.result] = valResStr;
-    }
+    const valRes = resolveVariablesInStringWithRules(String(param.value), targetEnv, documentUri);
+    if (valRes.error) return { error: valRes.error };
+
+    resolvedQuery.push({
+      key: keyRes.result,
+      value: valRes.result,
+      enabled: true
+    });
   }
 
   // 3. Resolve Headers
