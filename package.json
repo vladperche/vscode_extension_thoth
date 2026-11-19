@@ -2,7 +2,7 @@
   "name": "thoth",
   "displayName": "Thoth",
   "description": "HTTP Request Client for VS Code .thoth files",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "publisher": "VladimirPercheCruz",
   "repository": {
     "type": "git",
